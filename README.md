@@ -93,8 +93,8 @@ curl -X POST https://api.vobiz.ai/api/v1/Account/YOUR_AUTH_ID/Call/ \
   -H "X-Auth-Token: YOUR_AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "from": "+918071387428",
-    "to": "+919148227303",
+    "from": "+919988776655",
+    "to": "+919148123456",
     "answer_url": "https://your-ngrok-url.ngrok-free.app/answer",
     "answer_method": "POST"
   }'
@@ -103,8 +103,8 @@ curl -X POST https://api.vobiz.ai/api/v1/Account/YOUR_AUTH_ID/Call/ \
 Replace:
 - `YOUR_AUTH_ID` - Your Vobiz Auth ID
 - `YOUR_AUTH_TOKEN` - Your Vobiz Auth Token
-- `+918071387428` - Caller ID (from number)
-- `+919148227303` - Number to call (to number)
+- `+919988776655` - Caller ID (from number)
+- `+919148123456` - Number to call (to number)
 - `your-ngrok-url.ngrok-free.app` - Your ngrok URL
 
 ### 4. Have a Conversation
