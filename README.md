@@ -41,7 +41,7 @@ AI conversation + Recording saved
 1. **Clone the repository**
 ```bash
 git clone https://github.com/Piyush-sahoo/Vobiz-X-Pipecat.git
-cd outbound
+cd Vobiz-X-Pipecat
 ```
 
 2. **Install dependencies**
