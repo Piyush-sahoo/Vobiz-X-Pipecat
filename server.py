@@ -374,10 +374,35 @@ async def get_answer_xml(
         print(f"[INFO] Host: {host}, Environment: {env}")
 
         # Generate XML response for Vobiz
-        
+
+        # Check if recording is enabled
+        enable_recording = os.getenv("ENABLE_RECORDING", "true").lower() == "true"
+        max_recording_length = os.getenv("MAX_RECORDING_LENGTH", "3600")  # Default: 1 hour
+
+        # Build Record element if recording is enabled
+        record_element = ""
+        if enable_recording:
+            record_action_url = f"{protocol}://{host}/recording-finished"
+            record_callback_url = f"{protocol}://{host}/recording-ready"
+
+            record_element = f"""
+    <Record
+        action="{record_action_url}"
+        callbackUrl="{record_callback_url}"
+        redirect="false"
+        recordSession="true"
+        maxLength="{max_recording_length}"/>"""
+
+            print(f"[INFO] Recording enabled:")
+            print(f"[INFO]   - Action URL: {record_action_url}")
+            print(f"[INFO]   - Callback URL: {record_callback_url}")
+            print(f"[INFO]   - Max length: {max_recording_length} seconds")
+        else:
+            print(f"[INFO] Recording disabled (ENABLE_RECORDING=false)")
+
         xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    
+
     <Speak>Hello you are talking to Pipecat agent with VoBiz Telephony. Thank you for trusting us.</Speak>
     
     <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">
@@ -419,6 +444,14 @@ async def recording_finished(request: Request) -> HTMLResponse:
     print(f"[RECORDING] End Reason: {recording_end_reason}")
     print(f"[RECORDING] Start Time: {recording_start_ms}")
     print(f"[RECORDING] End Time: {recording_end_ms}")
+
+    # Store recording ID in active_calls for easy lookup
+    if call_uuid and call_uuid in active_calls:
+        active_calls[call_uuid]["recording_id"] = recording_id
+        active_calls[call_uuid]["recording_url"] = recording_url
+        print(f"[RECORDING] ✅ Stored recording ID {recording_id} for call {call_uuid}")
+    else:
+        print(f"[RECORDING] ⚠️  Call {call_uuid} not found in active_calls (may have ended)")
 
     # Optional: Download the recording
     # if recording_url:
@@ -623,7 +656,9 @@ async def get_active_calls() -> JSONResponse:
         calls_info[call_uuid] = {
             "status": call_data.get("status"),
             "started_at": call_data.get("started_at"),
-            "path": call_data.get("path")
+            "path": call_data.get("path"),
+            "recording_id": call_data.get("recording_id"),  # Include recording ID if available
+            "recording_url": call_data.get("recording_url")  # Include recording URL if available
             # Exclude 'websocket' as it's not JSON serializable
         }
 

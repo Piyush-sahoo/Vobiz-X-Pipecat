@@ -16,7 +16,7 @@ from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import parse_telephony_websocket
-from pipecat.serializers.plivo import PlivoFrameSerializer
+from pipecat.serializers.vobiz import VobizFrameSerializer
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.openai.stt import OpenAISTTService
 from pipecat.services.openai.tts import OpenAITTSService
@@ -98,13 +98,13 @@ async def bot(runner_args: RunnerArguments):
     transport_type, call_data = await parse_telephony_websocket(runner_args.websocket)
     logger.info(f"Transport type: {transport_type}, Call data: {call_data}")
 
-    serializer = PlivoFrameSerializer(
+    serializer = VobizFrameSerializer(
         stream_id=call_data.get("stream_id", ""),
         call_id=call_data.get("call_id", ""),
         auth_id=os.getenv("VOBIZ_AUTH_ID", ""),
         auth_token=os.getenv("VOBIZ_AUTH_TOKEN", ""),
-        params=PlivoFrameSerializer.InputParams(
-            plivo_sample_rate=8000,  
+        params=VobizFrameSerializer.InputParams(
+            vobiz_sample_rate=8000,  
             sample_rate=None,  # Uses pipeline default
             auto_hang_up=True  # Automatically hangs up on EndFrame
         )

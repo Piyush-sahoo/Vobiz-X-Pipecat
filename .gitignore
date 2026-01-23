@@ -1,32 +1,30 @@
-# Environment variables (contains secrets)
-.env
-
-# Python cache
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 
 # Virtual environments
 venv/
-env/
 ENV/
+env/
+.venv/
 
-# Recordings (may be large/private)
-recordings/
-*.mp3
-*.wav
+# Environment variables
+.env
+.env.local
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
-*~
+
+# Logs
+*.log
+
+# Recordings
+recordings/
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
