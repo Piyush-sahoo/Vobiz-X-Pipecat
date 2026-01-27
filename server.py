@@ -381,33 +381,36 @@ async def get_answer_xml(
 
         # Build Record element if recording is enabled
         record_element = ""
-        if enable_recording:
-            record_action_url = f"{protocol}://{host}/recording-finished"
-            record_callback_url = f"{protocol}://{host}/recording-ready"
+        # if enable_recording:
+        # User requested specific hardcoded XML structure
+        # record_action_url = f"{protocol}://{host}/recording-finished"
+        # record_callback_url = f"{protocol}://{host}/recording-ready"
 
-            record_element = f"""
-    <Record
-        action="{record_action_url}"
-        callbackUrl="{record_callback_url}"
-        redirect="false"
-        recordSession="true"
-        maxLength="{max_recording_length}"/>"""
+        record_element = f"""
+        <Record fileFormat="wav" maxLength="3600" recordSession="true" callbackUrl="{protocol}://{host}/recording-ready" callbackMethod="POST">
+        </Record>"""
 
-            print(f"[INFO] Recording enabled:")
-            print(f"[INFO]   - Action URL: {record_action_url}")
-            print(f"[INFO]   - Callback URL: {record_callback_url}")
-            print(f"[INFO]   - Max length: {max_recording_length} seconds")
-        else:
-            print(f"[INFO] Recording disabled (ENABLE_RECORDING=false)")
+        #     print(f"[INFO] Using user-requested hardcoded recording element")
+        # else:
+        #     print(f"[INFO] Recording disabled (ENABLE_RECORDING=false)")
+
+        # Use user-requested XML structure with specific params
+        # Note: We still need to inject the ws_url dynamic parameters if we want it to work with our bot
+        # But user asked for specific format. combining the two:
+        # Re-building correct WS URL to match user request pattern but with actual dynamic values where needed
+        ws_url_base = f"wss://{host}/voice/ws"
+        
+        # Use existing query_params populated earlier (lines 350-364)
+        # Note: query_params already contains serviceHost (if prod) and body (if present)
+        
+        final_ws_url = f"{ws_url_base}?{'&'.join(query_params)}" if query_params else ws_url_base
 
         xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-
-    <Speak>Hello you are talking to Pipecat agent with VoBiz Telephony. Thank you for trusting us.</Speak>
-    
-    <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">
-        {ws_url}
-    </Stream>
+{record_element}
+        <Stream bidirectional="true" audioTrack="inbound" contentType="audio/x-mulaw;rate=8000" keepCallAlive="true">
+            {final_ws_url}
+        </Stream>
 </Response>"""
 
         print(f"[DEBUG] XML Response:\n{xml_content}")
@@ -713,9 +716,21 @@ async def handle_vobiz_websocket(
 
         print("[DEBUG] Starting bot initialization...")
 
-        # Parse WebSocket to get call UUID
-        transport_type, call_data = await parse_telephony_websocket(websocket)
-        call_uuid = call_data.get("call_id")
+        print("[DEBUG] Starting bot initialization...")
+
+        # CRITICAL FIX: Do NOT parse the WebSocket here using parse_telephony_websocket(websocket)
+        # That would consume the initial handshake messages, leaving the socket "empty" for the Pipecat transport.
+        # Instead, we rely on the query parameters we put in the XML (call_uuid).
+        
+        # Get IDs from query params (preferred) or just generate/placeholder if missing
+        call_uuid = websocket.query_params.get("call_uuid")
+        if not call_uuid:
+             call_uuid = websocket.query_params.get("call_id")
+        
+        # Stream ID might come later in the protocol, but for Vobiz/Plivo it's often in the start message.
+        # Since we can't read the start message here without breaking Pipecat, we pass None
+        # and let bot.py's transport handle the protocol handshake naturally.
+        stream_id = None 
 
         if call_uuid:
             # Update or create entry in active_calls with WebSocket reference
@@ -726,7 +741,7 @@ async def handle_vobiz_websocket(
                 active_calls[call_uuid]["path"] = path
                 print(f"[CALL] ✅ Updated existing call {call_uuid} with WebSocket")
             else:
-                # Create new entry (direct WebSocket connection without /start)
+                # Create new entry
                 active_calls[call_uuid] = {
                     "status": "active",
                     "started_at": datetime.now().isoformat(),
@@ -738,14 +753,15 @@ async def handle_vobiz_websocket(
 
             print(f"[CALL] Active calls count: {len(active_calls)}")
         else:
-            print("[CALL] ⚠️  No call UUID found in WebSocket data")
+            print("[CALL] ⚠️  No call UUID found in URL query params")
 
         # Create runner arguments and run the bot
         runner_args = WebSocketRunnerArguments(websocket=websocket)
         runner_args.handle_sigint = False
 
         print("[DEBUG] Calling bot function...")
-        await bot(runner_args)
+        # We pass call_id if we have it, but we let stream_id be None so bot/transport can find it from the stream
+        await bot(runner_args, call_id=call_uuid, stream_id=stream_id)
 
         print("[DEBUG] Bot function completed")
 
@@ -792,6 +808,16 @@ async def websocket_root(
 ):
     """Handle WebSocket connection at root path."""
     await handle_vobiz_websocket(websocket, "/", body, serviceHost)
+
+
+@app.websocket("/voice/ws")
+async def websocket_voice_ws(
+    websocket: WebSocket,
+    body: str = Query(None),
+    serviceHost: str = Query(None),
+):
+    """Handle WebSocket connection at /voice/ws path to match user XML."""
+    await handle_vobiz_websocket(websocket, "/voice/ws", body, serviceHost)
 
 
 @app.websocket("/stream")

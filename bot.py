@@ -91,20 +91,27 @@ async def run_bot(transport: BaseTransport, handle_sigint: bool):
     await runner.run(task)
 
 
-async def bot(runner_args: RunnerArguments):
+async def bot(runner_args: RunnerArguments, call_id: str = None, stream_id: str = None):
     """Main bot entry point compatible with Pipecat Cloud."""
 
-    # Parse the telephony WebSocket to extract stream_id and call_id
-    transport_type, call_data = await parse_telephony_websocket(runner_args.websocket)
-    logger.info(f"Transport type: {transport_type}, Call data: {call_data}")
+    # If call_id/stream_id not provided, try to parse from WebSocket (legacy behavior)
+    if not call_id or not stream_id:
+        # Parse the telephony WebSocket to extract stream_id and call_id
+        transport_type, call_data = await parse_telephony_websocket(runner_args.websocket)
+        logger.info(f"Transport type: {transport_type}, Call data: {call_data}")
+        stream_id = call_data.get("stream_id", "")
+        call_id = call_data.get("call_id", "")
+    else:
+        logger.info(f"Using pre-parsed call data - Call ID: {call_id}, Stream ID: {stream_id}")
 
     serializer = VobizFrameSerializer(
-        stream_id=call_data.get("stream_id", ""),
-        call_id=call_data.get("call_id", ""),
+        stream_id=stream_id,
+        call_id=call_id,
         auth_id=os.getenv("VOBIZ_AUTH_ID", ""),
         auth_token=os.getenv("VOBIZ_AUTH_TOKEN", ""),
         params=VobizFrameSerializer.InputParams(
-            vobiz_sample_rate=8000,  
+            vobiz_sample_rate=8000,
+            encoding="audio/x-l16",  # Request L16 encoding
             sample_rate=None,  # Uses pipeline default
             auto_hang_up=True  # Automatically hangs up on EndFrame
         )
